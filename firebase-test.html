@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Firebase Test — KING BUSINESS ANALYTICS</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <style>
+    .test-wrap { max-width: 720px; margin: 0 auto; padding: var(--space-6, 24px) var(--space-4, 16px); }
+    .test-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 14px 16px; border: 1px solid var(--color-border, #e5e7eb); border-radius: 12px; margin-bottom: 12px; }
+    .test-row__label { font-weight: 600; }
+    .test-row__value { font-size: 0.9rem; color: var(--color-text-muted, #6b7280); text-align: right; word-break: break-word; }
+    .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; }
+    .pill--ok { background: #dcfce7; color: #166534; }
+    .pill--err { background: #fee2e2; color: #991b1b; }
+    .pill--pending { background: #fef9c3; color: #854d0e; }
+    .test-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+  </style>
+</head>
+<body>
+  <div class="test-wrap">
+    <h1 style="margin-bottom: 4px;">Firebase Connectivity Test</h1>
+    <p style="color: var(--color-text-muted, #6b7280); margin-bottom: 20px;">
+      KING BUSINESS ANALYTICS — verifies Firebase App, Auth and Firestore.
+    </p>
+
+    <div class="test-row">
+      <span class="test-row__label">Firebase Connected</span>
+      <span class="test-row__value"><span id="status-connected" class="pill pill--pending">Checking…</span></span>
+    </div>
+    <div class="test-row">
+      <span class="test-row__label">Current User</span>
+      <span class="test-row__value" id="status-user">Checking…</span>
+    </div>
+    <div class="test-row">
+      <span class="test-row__label">Firestore Read Test</span>
+      <span class="test-row__value"><span id="status-read" class="pill pill--pending">Idle</span></span>
+    </div>
+    <div class="test-row">
+      <span class="test-row__label">Firestore Write Test</span>
+      <span class="test-row__value"><span id="status-write" class="pill pill--pending">Idle</span></span>
+    </div>
+
+    <div class="test-actions">
+      <button class="btn btn--primary" id="btn-read">Run Read Test</button>
+      <button class="btn btn--primary" id="btn-write">Run Write Test</button>
+      <a class="btn btn--outline" href="pages/auth/login.html">Go to Login</a>
+      <button class="btn btn--ghost" id="btn-logout">Logout</button>
+    </div>
+
+    <pre id="log" style="background:#0b1020; color:#d1e0ff; padding:14px; border-radius:12px; font-size:0.8rem; overflow:auto; max-height:260px;"></pre>
+  </div>
+
+  <script type="module">
+    import { app, db } from './js/firebase-config.js';
+    import { getCurrentUser, getCurrentProfile, logoutUser } from './js/auth.js';
+    import {
+      doc, getDoc, setDoc, serverTimestamp
+    } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+    const $ = (id) => document.getElementById(id);
+    const logEl = $('log');
+    const log = (msg) => {
+      logEl.textContent += `${new Date().toLocaleTimeString()}  ${msg}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    };
+    const setPill = (el, kind, text) => {
+      el.className = `pill pill--${kind}`;
+      el.textContent = text;
+    };
+
+    // 1) Firebase Connected — app initialized with a real projectId.
+    try {
+      const ok = !!app && !!app.options?.projectId;
+      setPill($('status-connected'), ok ? 'ok' : 'err', ok ? `Yes (${app.options.projectId})` : 'No');
+      log(ok ? `Firebase initialized for project "${app.options.projectId}".` : 'Firebase app not initialized.');
+    } catch (err) {
+      setPill($('status-connected'), 'err', 'No');
+      log(`Init error: ${err.message}`);
+    }
+
+    // 2) Current user
+    let currentUser = null;
+    (async () => {
+      currentUser = await getCurrentUser();
+      const profile = await getCurrentProfile();
+      if (currentUser) {
+        $('status-user').textContent = `${currentUser.email} (${profile?.role || 'unknown role'})`;
+        log(`Signed in as ${currentUser.email} [uid=${currentUser.uid}]`);
+      } else {
+        $('status-user').textContent = 'Not signed in';
+        log('No authenticated user. Login to enable authenticated read/write tests.');
+      }
+    })();
+
+    // 3) Read test
+    $('btn-read').addEventListener('click', async () => {
+      setPill($('status-read'), 'pending', 'Running…');
+      try {
+        currentUser = await getCurrentUser();
+        if (!currentUser) {
+          setPill($('status-read'), 'err', 'Login required');
+          log('Read test skipped — sign in first.');
+          return;
+        }
+        const snap = await getDoc(doc(db, 'users', currentUser.uid));
+        if (snap.exists()) {
+          setPill($('status-read'), 'ok', 'Passed');
+          log(`Read OK — users/${currentUser.uid}: ${JSON.stringify(snap.data())}`);
+        } else {
+          setPill($('status-read'), 'ok', 'Passed (no profile doc)');
+          log(`Read OK — users/${currentUser.uid} has no document yet.`);
+        }
+      } catch (err) {
+        setPill($('status-read'), 'err', 'Failed');
+        log(`Read error: ${err.code || ''} ${err.message}`);
+      }
+    });
+
+    // 4) Write test — writes a harmless timestamp to the user's own profile,
+    // which the Firestore rules allow (a user may update their own doc).
+    $('btn-write').addEventListener('click', async () => {
+      setPill($('status-write'), 'pending', 'Running…');
+      try {
+        currentUser = await getCurrentUser();
+        if (!currentUser) {
+          setPill($('status-write'), 'err', 'Login required');
+          log('Write test skipped — sign in first.');
+          return;
+        }
+        await setDoc(
+          doc(db, 'users', currentUser.uid),
+          { lastConnectionTestAt: serverTimestamp() },
+          { merge: true }
+        );
+        setPill($('status-write'), 'ok', 'Passed');
+        log(`Write OK — stamped users/${currentUser.uid}.lastConnectionTestAt`);
+      } catch (err) {
+        setPill($('status-write'), 'err', 'Failed');
+        log(`Write error: ${err.code || ''} ${err.message}`);
+      }
+    });
+
+    $('btn-logout').addEventListener('click', async () => {
+      await logoutUser();
+      log('Signed out.');
+      $('status-user').textContent = 'Not signed in';
+    });
+  </script>
+</body>
+</html>

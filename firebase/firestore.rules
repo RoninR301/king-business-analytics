@@ -11,7 +11,7 @@ service cloud.firestore {
     }
 
     function isOwner() {
-      return isAuthenticated() && getUserData().role == 'owner';
+      return isAuthenticated() && (getUserData().role == 'owner' || getUserData().role == 'admin');
     }
 
     function isManager() {
@@ -61,6 +61,13 @@ service cloud.firestore {
     }
 
     match /customers/{customerId} {
+      allow read: if isAuthenticated() && canAccessShop(resource.data.shopId);
+      allow create: if isAuthenticated() && canAccessShop(request.resource.data.shopId);
+      allow update: if isAuthenticated() && canAccessShop(resource.data.shopId);
+      allow delete: if isOwner() && ownsShop(resource.data.shopId);
+    }
+
+    match /products/{productId} {
       allow read: if isAuthenticated() && canAccessShop(resource.data.shopId);
       allow create: if isAuthenticated() && canAccessShop(request.resource.data.shopId);
       allow update: if isAuthenticated() && canAccessShop(resource.data.shopId);

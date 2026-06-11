@@ -117,7 +117,7 @@ export const shopsController = {
   },
 
   async deleteShop(shopId) {
-    if (!confirm('Delete this shop? This cannot be undone.')) return;
+    if (!confirm('Delete this shop? It will be archived (soft delete) and can be restored later.')) return;
     try {
       await shopService.delete(shopId);
       showToast('Shop deleted', 'success');

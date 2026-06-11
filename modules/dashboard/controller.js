@@ -18,6 +18,20 @@ export const dashboardController = {
       end: toISODate(range.end)
     });
 
+    // Live totals straight from Firestore (revenue & profit reflect actual sales).
+    try {
+      const allSales = await salesService.getByOwner(user.uid);
+      stats.totalSales = allSales.length;
+      stats.totalRevenue = allSales.reduce((sum, s) => sum + (Number(s.grandTotal) || 0), 0);
+      stats.totalProfit = allSales.reduce((sum, s) => sum + (Number(s.profit) || 0), 0);
+      const { getProducts } = await import('../../js/firestore-service.js');
+      const shopIds = [...new Set(allSales.map((s) => s.shopId).filter(Boolean))];
+      const productCounts = await Promise.all(shopIds.map((id) => getProducts(id).then((p) => p.length)));
+      stats.totalProducts = productCounts.reduce((a, b) => a + b, 0);
+    } catch (err) {
+      console.warn('[KBA][dashboard] live totals fallback:', err?.message || err);
+    }
+
     container.innerHTML = `
       <div class="page-title"><h1>Owner Dashboard</h1><p>Overview of all your shops</p></div>
       ${renderStatsCards(stats)}

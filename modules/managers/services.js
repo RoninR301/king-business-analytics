@@ -1,13 +1,14 @@
 import {
   createUserWithEmailAndPassword,
   getAuth,
+  sendPasswordResetEmail,
   signOut
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {
-  collection, doc, setDoc, getDocs, query, where, updateDoc, serverTimestamp
+  collection, doc, setDoc, getDoc, getDocs, query, where, updateDoc, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { app, db } from '../../firebase/init.js';
+import { app, auth, db } from '../../firebase/init.js';
 import { COLLECTIONS } from '../../database/collections.js';
 import { shopService } from '../shops/services.js';
 
@@ -82,6 +83,42 @@ class ManagerService {
         updatedAt: serverTimestamp()
       });
     }
+  }
+
+  async getById(managerId) {
+    const snap = await getDoc(doc(db, COLLECTIONS.MANAGERS, managerId));
+    if (!snap.exists()) return null;
+    return { id: snap.id, ...snap.data() };
+  }
+
+  /**
+   * Reset a manager's password (audit fix — this system was missing).
+   *
+   * A web client cannot directly set another user's password (that needs the
+   * Firebase Admin SDK / a Cloud Function). The production-safe client path is
+   * to email the manager a password-reset link. We stamp the manager doc so the
+   * owner has an audit trail of the request.
+   */
+  async updateManagerPassword(managerId) {
+    const manager = await this.getById(managerId);
+    if (!manager) throw new Error('Manager not found.');
+    if (!manager.email) throw new Error('Manager has no email on file.');
+
+    await sendPasswordResetEmail(auth, manager.email);
+    await updateDoc(doc(db, COLLECTIONS.MANAGERS, managerId), {
+      passwordResetRequestedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    return { email: manager.email, method: 'reset-email' };
+  }
+
+  /** Enable/disable a manager at the application level. */
+  async setDisabled(managerId, disabled = true) {
+    await updateDoc(doc(db, COLLECTIONS.MANAGERS, managerId), {
+      disabled: !!disabled,
+      updatedAt: serverTimestamp()
+    });
+    return true;
   }
 }
 
