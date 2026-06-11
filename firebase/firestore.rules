@@ -11,19 +11,25 @@ service cloud.firestore {
     }
 
     function isOwner() {
-      return isAuthenticated() && (getUserData().role == 'owner' || getUserData().role == 'admin');
+      return isAuthenticated() &&
+        (getUserData().role == 'owner' ||
+         getUserData().role == 'admin');
     }
 
     function isManager() {
-      return isAuthenticated() && getUserData().role == 'manager';
+      return isAuthenticated() &&
+        getUserData().role == 'manager';
     }
 
     function ownsShop(shopId) {
-      return isOwner() && get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid;
+      return isOwner() &&
+        get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId
+        == request.auth.uid;
     }
 
     function managesShop(shopId) {
-      return isManager() && getUserData().shopId == shopId;
+      return isManager() &&
+        getUserData().shopId == shopId;
     }
 
     function canAccessShop(shopId) {
@@ -31,78 +37,139 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isOwner());
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && request.auth.uid == userId;
-      allow delete: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAuthenticated() &&
+        (request.auth.uid == userId || isOwner());
+
+      allow create: if isAuthenticated() &&
+        request.auth.uid == userId;
+
+      allow update: if isAuthenticated() &&
+        request.auth.uid == userId;
+
+      allow delete: if isAuthenticated() &&
+        request.auth.uid == userId;
     }
 
     match /shops/{shopId} {
-      allow read: if isAuthenticated() && canAccessShop(shopId);
-      allow create: if isOwner() && request.resource.data.ownerId == request.auth.uid;
+      allow read: if isAuthenticated() &&
+        canAccessShop(shopId);
+
+      allow create: if isOwner() &&
+        request.resource.data.ownerId == request.auth.uid;
+
       allow update: if ownsShop(shopId);
       allow delete: if ownsShop(shopId);
     }
 
     match /managers/{managerId} {
-      allow read: if isAuthenticated() && (
-        ownsShop(resource.data.shopId) || request.auth.uid == resource.data.authUid
-      );
-      allow create: if isOwner() && ownsShop(request.resource.data.shopId);
-      allow update: if isOwner() && ownsShop(resource.data.shopId);
-      allow delete: if isOwner() && ownsShop(resource.data.shopId);
+      allow read: if isAuthenticated() &&
+        (ownsShop(resource.data.shopId) ||
+         request.auth.uid == resource.data.authUid);
+
+      allow create: if isOwner() &&
+        ownsShop(request.resource.data.shopId);
+
+      allow update: if isOwner() &&
+        ownsShop(resource.data.shopId);
+
+      allow delete: if isOwner() &&
+        ownsShop(resource.data.shopId);
     }
 
     match /sales/{saleId} {
-      allow read: if isAuthenticated() && canAccessShop(resource.data.shopId);
-      allow create: if isAuthenticated() && canAccessShop(request.resource.data.shopId);
-      allow update: if isAuthenticated() && canAccessShop(resource.data.shopId);
-      allow delete: if isOwner() && ownsShop(resource.data.shopId);
+      allow read: if isAuthenticated() &&
+        canAccessShop(resource.data.shopId);
+
+      allow create: if isAuthenticated() &&
+        canAccessShop(request.resource.data.shopId);
+
+      allow update: if isAuthenticated() &&
+        canAccessShop(resource.data.shopId);
+
+      allow delete: if isOwner() &&
+        ownsShop(resource.data.shopId);
     }
 
     match /customers/{customerId} {
-      allow read: if isAuthenticated() && canAccessShop(resource.data.shopId);
-      allow create: if isAuthenticated() && canAccessShop(request.resource.data.shopId);
-      allow update: if isAuthenticated() && canAccessShop(resource.data.shopId);
-      allow delete: if isOwner() && ownsShop(resource.data.shopId);
+      allow read: if isAuthenticated() &&
+        canAccessShop(resource.data.shopId);
+
+      allow create: if isAuthenticated() &&
+        canAccessShop(request.resource.data.shopId);
+
+      allow update: if isAuthenticated() &&
+        canAccessShop(resource.data.shopId);
+
+      allow delete: if isOwner() &&
+        ownsShop(resource.data.shopId);
     }
 
     match /products/{productId} {
-      allow read: if isAuthenticated() && canAccessShop(resource.data.shopId);
-      allow create: if isAuthenticated() && canAccessShop(request.resource.data.shopId);
-      allow update: if isAuthenticated() && canAccessShop(resource.data.shopId);
-      allow delete: if isOwner() && ownsShop(resource.data.shopId);
+      allow read: if isAuthenticated() &&
+        canAccessShop(resource.data.shopId);
+
+      allow create: if isAuthenticated() &&
+        canAccessShop(request.resource.data.shopId);
+
+      allow update: if isAuthenticated() &&
+        canAccessShop(resource.data.shopId);
+
+      allow delete: if isOwner() &&
+        ownsShop(resource.data.shopId);
     }
 
     match /invoices/{invoiceId} {
-      allow read: if isAuthenticated() && canAccessShop(resource.data.shopId);
-      allow create: if isAuthenticated() && canAccessShop(request.resource.data.shopId);
-      allow update: if isAuthenticated() && canAccessShop(resource.data.shopId);
-      allow delete: if isOwner() && ownsShop(resource.data.shopId);
+      allow read: if isAuthenticated() &&
+        canAccessShop(resource.data.shopId);
+
+      allow create: if isAuthenticated() &&
+        canAccessShop(request.resource.data.shopId);
+
+      allow update: if isAuthenticated() &&
+        canAccessShop(resource.data.shopId);
+
+      allow delete: if isOwner() &&
+        ownsShop(resource.data.shopId);
     }
 
     match /udhari/{udhariId} {
-      allow read: if isAuthenticated() && canAccessShop(resource.data.shopId);
-      allow create: if isAuthenticated() && canAccessShop(request.resource.data.shopId);
-      allow update: if isAuthenticated() && canAccessShop(resource.data.shopId);
-      allow delete: if isOwner() && ownsShop(resource.data.shopId);
+      allow read: if isAuthenticated() &&
+        canAccessShop(resource.data.shopId);
+
+      allow create: if isAuthenticated() &&
+        canAccessShop(request.resource.data.shopId);
+
+      allow update: if isAuthenticated() &&
+        canAccessShop(resource.data.shopId);
+
+      allow delete: if isOwner() &&
+        ownsShop(resource.data.shopId);
     }
 
     match /analytics/{docId} {
-      allow read: if isAuthenticated() && (
-        isOwner() && resource.data.ownerId == request.auth.uid ||
-        isManager() && managesShop(resource.data.shopId)
-      );
-      allow write: if isAuthenticated() && canAccessShop(request.resource.data.shopId);
+      allow read: if isAuthenticated() &&
+        (
+          (isOwner() &&
+           resource.data.ownerId == request.auth.uid) ||
+          (isManager() &&
+           managesShop(resource.data.shopId))
+        );
+
+      allow write: if isAuthenticated() &&
+        canAccessShop(request.resource.data.shopId);
     }
 
     match /settings/{ownerId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == ownerId;
+      allow read, write: if isAuthenticated() &&
+        request.auth.uid == ownerId;
     }
 
     match /backup/{backupId} {
-      allow read, write: if isOwner() && resource.data.ownerId == request.auth.uid;
-      allow create: if isOwner() && request.resource.data.ownerId == request.auth.uid;
+      allow read, write: if isOwner() &&
+        resource.data.ownerId == request.auth.uid;
+
+      allow create: if isOwner() &&
+        request.resource.data.ownerId == request.auth.uid;
     }
   }
 }
