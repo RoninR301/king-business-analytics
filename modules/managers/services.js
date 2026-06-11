@@ -67,6 +67,9 @@ class ManagerService {
   async updateForShop(shopId, ownerId, { name, email, password }) {
     const managers = await this.getByShop(shopId);
     if (!managers.length) {
+      if (!password) {
+        throw new Error('A password is required to create the manager account.');
+      }
       return this.create({ shopId, ownerId, name, email, password });
     }
 

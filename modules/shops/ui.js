@@ -52,9 +52,15 @@ export function renderShopForm(shop = null) {
       </div>
       <fieldset style="grid-column: 1 / -1; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4)">
         <legend style="font-weight: 600; padding: 0 var(--space-2)">Manager Account</legend>
-        ${renderFormField({ name: 'managerName', label: 'Manager Name', type: 'text', required: !shop }, shop ? '' : '')}
+        ${renderFormField({ name: 'managerName', label: 'Manager Name', type: 'text', required: !shop }, '')}
         ${renderFormField({ name: 'managerUsername', label: 'Manager Email (Login)', type: 'email', required: !shop }, '')}
-        ${renderFormField({ name: 'managerPassword', label: 'Manager Password', type: 'password', required: !shop, hint: shop ? 'Leave blank to keep existing' : 'Minimum 8 characters' }, '')}
+        ${shop ? `
+          <div class="form-group" style="grid-column: 1 / -1">
+            <label class="form-label">Manager Password</label>
+            <p class="form-hint" style="margin: 0 0 var(--space-2)">For security, a password can't be set directly. Email the manager a secure reset link instead.</p>
+            <button type="button" class="btn btn--outline btn--sm" id="reset-manager-password">Send Password Reset Email</button>
+          </div>
+        ` : renderFormField({ name: 'managerPassword', label: 'Manager Password', type: 'password', required: true, hint: 'Minimum 8 characters' }, '')}
       </fieldset>
     </form>
   `;

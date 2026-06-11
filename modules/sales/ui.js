@@ -10,11 +10,23 @@ export function renderSalesForm(category, customFields = []) {
   const customerFields = isRestaurant
     ? [
         { name: 'customerName', label: 'Customer Name', type: 'text', required: false },
-        { name: 'tableNumber', label: 'Table Number', type: 'text', required: true }
+        { name: 'tableNumber', label: 'Table Number', type: 'text', required: true },
+        { name: 'customerAddress', label: 'Address', type: 'text', required: false }
       ]
     : DEFAULT_CUSTOMER_FIELDS;
 
-  const productFields = CATEGORY_FORM_FIELDS[category] || customFields;
+  const baseProductFields = CATEGORY_FORM_FIELDS[category] || customFields;
+  // Capture cost so profit can be computed (selling price - purchase price).
+  // Inject a "Purchase Price" field next to the existing selling price and
+  // clarify the selling-price label, without editing every category schema.
+  const productFields = baseProductFields.flatMap((f) =>
+    f.name === 'price'
+      ? [
+          { name: 'purchasePrice', label: 'Purchase Price (Cost)', type: 'number', required: false, min: 0, step: 0.01 },
+          { ...f, label: 'Selling Price' }
+        ]
+      : [f]
+  );
 
   const customerHtml = customerFields.map((f) => renderFormField(f)).join('');
   const productHtml = productFields.map((f) => renderFormField(f)).join('');

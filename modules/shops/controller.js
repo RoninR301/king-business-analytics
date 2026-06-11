@@ -40,7 +40,7 @@ export const shopsController = {
     });
   },
 
-  openShopModal(shopId = null) {
+  async openShopModal(shopId = null) {
     const isEdit = !!shopId;
     const shop = isEdit ? shopStore.getShops().find((s) => s.id === shopId) : null;
 
@@ -58,6 +58,30 @@ export const shopsController = {
     categorySelect?.addEventListener('change', () => {
       customGroup.style.display = categorySelect.value === 'Other' ? '' : 'none';
     });
+
+    // Edit mode: prefill the existing manager and wire the password-reset flow.
+    if (isEdit) {
+      const managers = await managerService.getByShop(shopId);
+      const manager = managers[0] || null;
+      if (manager) {
+        const nameInput = overlay.querySelector('[name="managerName"]');
+        const emailInput = overlay.querySelector('[name="managerUsername"]');
+        if (nameInput) nameInput.value = manager.name || '';
+        if (emailInput) emailInput.value = manager.email || '';
+      }
+      overlay.querySelector('#reset-manager-password')?.addEventListener('click', async (e) => {
+        if (!manager) return showToast('No manager assigned to this shop yet', 'error');
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        try {
+          const result = await managerService.updateManagerPassword(manager.id);
+          showToast(`Password reset email sent to ${result.email}`, 'success');
+        } catch (err) {
+          showToast(err.message || 'Could not send reset email', 'error');
+          btn.disabled = false;
+        }
+      });
+    }
 
     overlay.querySelector('.modal-cancel').addEventListener('click', () => overlay.querySelector('.modal-close').click());
 
@@ -79,7 +103,9 @@ export const shopsController = {
 
         if (isEdit) {
           await shopService.update(shopId, data, logoFile || null);
-          if (data.managerUsername && data.managerPassword) {
+          // Manager name/email can be edited inline. Passwords are changed via
+          // the dedicated "Send Password Reset Email" button, never here.
+          if (data.managerName || data.managerUsername) {
             await managerService.updateForShop(shopId, user.uid, {
               name: data.managerName,
               email: data.managerUsername,

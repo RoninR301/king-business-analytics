@@ -52,6 +52,9 @@ class BillingService {
     const invoice = {
       id: invoiceRef.id,
       shopId,
+      // Store ownerId on the invoice so owner-wide queries don't have to fan
+      // out across every shop (audit fix). Fall back to the sale's ownerId.
+      ownerId: shop.ownerId || sale.ownerId || null,
       saleId: sale.id,
       invoiceNumber,
       shop: {
@@ -92,6 +95,13 @@ class BillingService {
   }
 
   async getByOwner(ownerId) {
+    // Primary path: invoices created after the audit fix carry ownerId.
+    const q = query(collection(db, COLLECTIONS.INVOICES), where('ownerId', '==', ownerId));
+    const snap = await getDocs(q);
+    const direct = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (direct.length) return direct;
+
+    // Fallback for legacy invoices without ownerId: fan out across shops.
     const shops = await import('../shops/services.js').then((m) => m.shopService.getByOwner(ownerId));
     const all = [];
     for (const shop of shops) {
