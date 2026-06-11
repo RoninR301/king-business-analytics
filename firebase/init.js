@@ -1,33 +1,9 @@
 /**
- * Firebase Initialization
- * Single entry point for all Firebase services.
+ * Firebase Initialization (compatibility shim)
+ *
+ * Firebase is now initialized exactly once in `js/firebase-config.js`.
+ * This file simply re-exports those singletons so existing modules that
+ * import from `../../firebase/init.js` keep working without duplicating
+ * initialization.
  */
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getAuth, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getFirestore, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { getStorage, connectStorageEmulator } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
-
-let firebaseConfig;
-try {
-  const configModule = await import('./config.js');
-  firebaseConfig = configModule.firebaseConfig;
-} catch {
-  const templateModule = await import('./config.template.js');
-  firebaseConfig = templateModule.firebaseConfig;
-  console.warn('[KBA] Using template Firebase config. Copy firebase/config.template.js to firebase/config.js');
-}
-
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-
-const useEmulators = typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.KBA_USE_EMULATORS === true;
-
-if (useEmulators) {
-  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-  connectFirestoreEmulator(db, 'localhost', 8080);
-  connectStorageEmulator(storage, 'localhost', 9199);
-}
-
-export { app };
+export { app, auth, db, storage, firebaseConfig } from '../js/firebase-config.js';

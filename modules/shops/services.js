@@ -1,5 +1,5 @@
 import {
-  collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc,
+  collection, doc, setDoc, getDoc, getDocs, updateDoc,
   query, where, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
@@ -35,6 +35,8 @@ class ShopService {
       upiId: data.upiId || null,
       managerId: null,
       active: true,
+      isDeleted: false,
+      deletedAt: null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
@@ -51,10 +53,11 @@ class ShopService {
     return getDownloadURL(storageRef);
   }
 
-  async getByOwner(ownerId) {
+  async getByOwner(ownerId, { includeDeleted = false } = {}) {
     const q = query(collection(db, COLLECTIONS.SHOPS), where('ownerId', '==', ownerId));
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const shops = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return includeDeleted ? shops : shops.filter((s) => s.isDeleted !== true);
   }
 
   async getById(shopId) {
@@ -77,9 +80,18 @@ class ShopService {
     return updated;
   }
 
+  /**
+   * Soft delete only — shops are NEVER hard deleted (audit fix). This
+   * preserves historical sales/invoices that reference the shop.
+   */
   async delete(shopId) {
     const shop = await this.getById(shopId);
-    await deleteDoc(doc(db, COLLECTIONS.SHOPS, shopId));
+    await updateDoc(doc(db, COLLECTIONS.SHOPS, shopId), {
+      isDeleted: true,
+      active: false,
+      deletedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
     eventBus.emit(EVENTS.SHOP_DELETED, { shopId, shop });
   }
 

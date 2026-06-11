@@ -1,23 +1,53 @@
 import {
-  collection, doc, setDoc, getDocs, query, where, orderBy, serverTimestamp
+  collection, doc, setDoc, getDocs, query, where, orderBy, limit, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { db } from '../../firebase/init.js';
 import { COLLECTIONS } from '../../database/collections.js';
 import { eventBus, EVENTS } from '../../core/event-bus.js';
 
 class BillingService {
-  async generateInvoiceNumber(shopId) {
-    const q = query(collection(db, COLLECTIONS.INVOICES), where('shopId', '==', shopId));
+  /**
+   * Generate a unique invoice number.
+   *
+   * Audit fix: count-based numbering (snap.size + 1) produces duplicates
+   * under concurrency. Use a timestamp + random suffix instead and verify
+   * uniqueness before returning, e.g. INV-20260611-AB12
+   */
+  buildInvoiceNumber() {
+    const now = new Date();
+    const datePart =
+      `${now.getFullYear()}` +
+      `${String(now.getMonth() + 1).padStart(2, '0')}` +
+      `${String(now.getDate()).padStart(2, '0')}`;
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let suffix = '';
+    for (let i = 0; i < 4; i++) {
+      suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `INV-${datePart}-${suffix}`;
+  }
+
+  async invoiceNumberExists(invoiceNumber) {
+    const q = query(
+      collection(db, COLLECTIONS.INVOICES),
+      where('invoiceNumber', '==', invoiceNumber),
+      limit(1)
+    );
     const snap = await getDocs(q);
-    const count = snap.size + 1;
-    const date = new Date();
-    const prefix = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`;
-    return `INV-${prefix}-${String(count).padStart(5, '0')}`;
+    return !snap.empty;
+  }
+
+  async generateInvoiceNumber() {
+    let invoiceNumber = this.buildInvoiceNumber();
+    for (let attempt = 0; attempt < 5 && (await this.invoiceNumberExists(invoiceNumber)); attempt++) {
+      invoiceNumber = this.buildInvoiceNumber();
+    }
+    return invoiceNumber;
   }
 
   async create(shopId, sale, shop, manager = null, settings = {}) {
     const invoiceRef = doc(collection(db, COLLECTIONS.INVOICES));
-    const invoiceNumber = await this.generateInvoiceNumber(shopId);
+    const invoiceNumber = await this.generateInvoiceNumber();
 
     const invoice = {
       id: invoiceRef.id,
