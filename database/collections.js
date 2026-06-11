@@ -223,5 +223,6 @@ export const CATEGORY_FORM_FIELDS = {
 
 export const DEFAULT_CUSTOMER_FIELDS = [
   { name: 'customerName', label: 'Customer Name', type: 'text', required: true },
-  { name: 'customerMobile', label: 'Mobile', type: 'tel', required: true }
+  { name: 'customerMobile', label: 'Mobile', type: 'tel', required: true },
+  { name: 'customerAddress', label: 'Address', type: 'text', required: false }
 ];

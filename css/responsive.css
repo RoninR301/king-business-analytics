@@ -5,6 +5,10 @@
 
 @media (min-width: 768px) {
   .landing-nav__links { display: flex; }
+  /* On desktop the inline nav links are visible, so the hamburger and its
+     drop-down are redundant — hide them (overrides inline styles). */
+  #mobile-menu-btn,
+  #mobile-nav { display: none !important; }
   .form-grid--3 { grid-template-columns: repeat(3, 1fr); }
   .content-grid--2 { grid-template-columns: repeat(2, 1fr); }
   .app-content { padding: var(--space-6); }
@@ -40,4 +44,12 @@
 
 @media (max-width: 1023px) {
   .app-sidebar.is-open { display: block; }
+}
+
+/* Small screens: keep modal action buttons and page-title actions from
+   overflowing horizontally. */
+@media (max-width: 480px) {
+  .modal__footer { flex-wrap: wrap; }
+  .modal__footer .btn { flex: 1 1 auto; }
+  .filter-bar { flex-wrap: wrap; }
 }

@@ -88,9 +88,11 @@ export const salesController = {
 
     item.quantity = Number(item.quantity) || 1;
     item.price = Number(item.price) || 0;
+    // Purchase price (cost) drives profit. Optional — defaults to 0.
+    item.purchasePrice = Number(data.purchasePrice) || 0;
 
     if (!item.price && shop.category !== 'Other') {
-      return showToast('Price is required', 'error');
+      return showToast('Selling price is required', 'error');
     }
 
     try {
@@ -98,7 +100,8 @@ export const salesController = {
       if (data.customerName && data.customerMobile) {
         const customer = await customersService.findOrCreate(shop.id, shop.ownerId, {
           name: data.customerName,
-          mobile: data.customerMobile
+          mobile: data.customerMobile,
+          address: data.customerAddress || null
         });
         customerId = customer.id;
       }
@@ -107,6 +110,7 @@ export const salesController = {
         customerId,
         customerName: data.customerName || (shop.category === 'Restaurant' ? `Table ${data.tableNumber}` : 'Walk-in'),
         customerMobile: data.customerMobile || '',
+        customerAddress: data.customerAddress || null,
         tableNumber: data.tableNumber,
         category: categoryKey,
         items: [item],

@@ -58,15 +58,23 @@ class ManagerService {
     return manager;
   }
 
-  async getByShop(shopId) {
-    const q = query(collection(db, COLLECTIONS.MANAGERS), where('shopId', '==', shopId));
+  async getByShop(shopId, ownerId = null) {
+    // Owner-side reads must be scoped by ownerId so the query matches the
+    // security rule (which authorizes manager reads off `ownerId`). Without
+    // the ownerId filter Firestore rejects the list query.
+    const clauses = [where('shopId', '==', shopId)];
+    if (ownerId) clauses.push(where('ownerId', '==', ownerId));
+    const q = query(collection(db, COLLECTIONS.MANAGERS), ...clauses);
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
 
   async updateForShop(shopId, ownerId, { name, email, password }) {
-    const managers = await this.getByShop(shopId);
+    const managers = await this.getByShop(shopId, ownerId);
     if (!managers.length) {
+      if (!password) {
+        throw new Error('A password is required to create the manager account.');
+      }
       return this.create({ shopId, ownerId, name, email, password });
     }
 

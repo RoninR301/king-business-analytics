@@ -25,7 +25,7 @@ class AnalyticsService {
     });
 
     const prev = existing.exists() ? existing.data() : {
-      salesCount: 0, revenue: 0, customerCount: 0, invoiceCount: 0
+      salesCount: 0, revenue: 0, profit: 0, customerCount: 0, invoiceCount: 0
     };
 
     await setDoc(ref, {
@@ -35,6 +35,7 @@ class AnalyticsService {
       date,
       salesCount: (prev.salesCount || 0) + 1,
       revenue: (prev.revenue || 0) + (sale.grandTotal || 0),
+      profit: (prev.profit || 0) + (sale.profit || 0),
       customerCount: prev.customerCount || 0,
       invoiceCount: (prev.invoiceCount || 0) + 1,
       topProducts,
@@ -101,6 +102,7 @@ class AnalyticsService {
       totalCustomers: customers.length,
       totalInvoices: invoices.length,
       totalRevenue: analytics.reduce((s, a) => s + (a.revenue || 0), 0),
+      totalProfit: analytics.reduce((s, a) => s + (a.profit || 0), 0),
       shopStats,
       bestShop: sortedShops[0] || null,
       worstShop: sortedShops[sortedShops.length - 1] || null,

@@ -21,18 +21,27 @@ class AuthService {
     this._readyPromise = new Promise((resolve) => { this._resolveReady = resolve; });
 
     onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        this.currentUser = firebaseUser;
-        this.userProfile = await this.fetchUserProfile(firebaseUser.uid);
-      } else {
-        this.currentUser = null;
+      try {
+        if (firebaseUser) {
+          this.currentUser = firebaseUser;
+          this.userProfile = await this.fetchUserProfile(firebaseUser.uid);
+        } else {
+          this.currentUser = null;
+          this.userProfile = null;
+        }
+      } catch (err) {
+        // A failed profile read must never leave the session promise unresolved
+        // (that would hang every guarded page on a blank screen). Treat it as
+        // "no profile" so the guard can fall back to the login redirect.
+        console.error('[Auth] Failed to load user profile:', err);
         this.userProfile = null;
+      } finally {
+        if (!this._ready) {
+          this._ready = true;
+          this._resolveReady();
+        }
+        eventBus.emit(EVENTS.AUTH_STATE_CHANGED, this.userProfile);
       }
-      if (!this._ready) {
-        this._ready = true;
-        this._resolveReady();
-      }
-      eventBus.emit(EVENTS.AUTH_STATE_CHANGED, this.userProfile);
     });
   }
 

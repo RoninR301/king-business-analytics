@@ -6,7 +6,6 @@ export function renderStatsCards(stats) {
   const cards = [
     { label: 'Total Shops', value: stats.totalShops },
     { label: 'Total Customers', value: formatNumber(stats.totalCustomers) },
-    { label: 'Total Products', value: formatNumber(stats.totalProducts ?? 0) },
     { label: 'Total Sales', value: formatNumber(stats.totalSales) },
     { label: 'Total Revenue', value: formatCurrency(stats.totalRevenue) },
     { label: 'Total Profit', value: formatCurrency(stats.totalProfit ?? 0) }
