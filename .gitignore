@@ -8,3 +8,4 @@ ui-debug.log
 
 # Local-only Firebase override (real config lives in js/firebase-config.js)
 firebase/config.js
+test-plan.md
