@@ -16,15 +16,25 @@ class AnalyticsService {
     const date = toISODate();
     const docId = this.getDocId(shopId, date);
     const ref = doc(db, COLLECTIONS.ANALYTICS, docId);
-    const existing = await getDoc(ref);
 
-    const topProducts = existing.exists() ? { ...existing.data().topProducts } : {};
+    // On the first sale of the day the daily doc doesn't exist yet, and the
+    // analytics read rule denies non-existent docs (resource is null). Treat a
+    // missing/denied read as "no prior aggregate" and start fresh.
+    let existing = null;
+    try {
+      const snap = await getDoc(ref);
+      if (snap.exists()) existing = snap.data();
+    } catch (err) {
+      existing = null;
+    }
+
+    const topProducts = existing ? { ...existing.topProducts } : {};
     (sale.items || []).forEach((item) => {
       const name = getItemDisplayName(item);
       topProducts[name] = (topProducts[name] || 0) + (Number(item.quantity) || 1);
     });
 
-    const prev = existing.exists() ? existing.data() : {
+    const prev = existing || {
       salesCount: 0, revenue: 0, profit: 0, customerCount: 0, invoiceCount: 0
     };
 

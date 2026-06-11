@@ -6,6 +6,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {
+  getFirestore,
   collection, doc, setDoc, getDoc, getDocs, query, where, updateDoc, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { app, auth, db } from '../../firebase/init.js';
@@ -13,20 +14,42 @@ import { COLLECTIONS } from '../../database/collections.js';
 import { shopService } from '../shops/services.js';
 
 class ManagerService {
-  async createManagerAuth(email, password) {
+  async createManagerAuth(email, password, profile = null) {
+    // Create the manager's Auth account on a secondary app so the owner's own
+    // session is never disturbed. The manager's users/{uid} profile is written
+    // through this same secondary (manager-authenticated) connection so the
+    // write satisfies the `request.auth.uid == userId` self-create rule — an
+    // owner is not permitted to create another account's profile document.
     const secondaryApp = initializeApp(app.options, `Secondary_${Date.now()}`);
     const secondaryAuth = getAuth(secondaryApp);
     try {
       const credential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+      const uid = credential.user.uid;
+      if (profile) {
+        const secondaryDb = getFirestore(secondaryApp);
+        await setDoc(doc(secondaryDb, COLLECTIONS.USERS, uid), {
+          uid,
+          role: 'manager',
+          name: profile.name,
+          email,
+          mobile: profile.mobile || '',
+          shopId: profile.shopId,
+          ownerId: profile.ownerId,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
       await signOut(secondaryAuth);
-      return credential.user.uid;
+      return uid;
     } finally {
       await deleteApp(secondaryApp);
     }
   }
 
   async create({ shopId, ownerId, name, email, password }) {
-    const authUid = await this.createManagerAuth(email, password);
+    // Auth account + the manager's own users/{uid} profile are provisioned
+    // together through the secondary manager-authenticated connection.
+    const authUid = await this.createManagerAuth(email, password, { name, shopId, ownerId });
 
     const managerRef = doc(collection(db, COLLECTIONS.MANAGERS));
     const manager = {
@@ -41,19 +64,6 @@ class ManagerService {
     };
 
     await setDoc(managerRef, manager);
-
-    await setDoc(doc(db, COLLECTIONS.USERS, authUid), {
-      uid: authUid,
-      role: 'manager',
-      name,
-      email,
-      mobile: '',
-      shopId,
-      ownerId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-
     await shopService.linkManager(shopId, managerRef.id);
     return manager;
   }
@@ -84,12 +94,20 @@ class ManagerService {
 
     await updateDoc(doc(db, COLLECTIONS.MANAGERS, manager.id), updates);
 
+    // The manager's users/{uid} profile can only be written by the manager
+    // themselves (self-write rule). Syncing the display name/email from the
+    // owner side is best-effort: the managers doc above is the source of truth
+    // for the owner UI, so an owner edit must never fail if this sync is denied.
     if (manager.authUid) {
-      await updateDoc(doc(db, COLLECTIONS.USERS, manager.authUid), {
-        name,
-        ...(email ? { email } : {}),
-        updatedAt: serverTimestamp()
-      });
+      try {
+        await updateDoc(doc(db, COLLECTIONS.USERS, manager.authUid), {
+          name,
+          ...(email ? { email } : {}),
+          updatedAt: serverTimestamp()
+        });
+      } catch (err) {
+        console.warn('[KBA][managers] manager profile name sync skipped:', err?.code || err?.message || err);
+      }
     }
   }
 

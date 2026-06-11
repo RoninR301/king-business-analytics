@@ -1,9 +1,18 @@
 import {
-  collection, doc, setDoc, getDocs, query, where, orderBy, serverTimestamp
+  collection, doc, setDoc, getDocs, query, where, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { db } from '../../firebase/init.js';
 import { COLLECTIONS } from '../../database/collections.js';
 import { eventBus, EVENTS } from '../../core/event-bus.js';
+
+// Normalize a Firestore Timestamp | ISO string | null into milliseconds so
+// records can be sorted newest-first on the client.
+function toMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  const t = new Date(value).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
 
 class SalesService {
   async create(shopId, ownerId, saleData, createdBy) {
@@ -63,13 +72,16 @@ class SalesService {
   }
 
   async getByShop(shopId, filters = {}) {
-    let q = query(
+    // Sort newest-first client-side instead of orderBy('createdAt') so the query
+    // needs no composite (shopId + createdAt) index to be provisioned.
+    const q = query(
       collection(db, COLLECTIONS.SALES),
-      where('shopId', '==', shopId),
-      orderBy('createdAt', 'desc')
+      where('shopId', '==', shopId)
     );
     const snap = await getDocs(q);
-    let sales = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    let sales = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((x, y) => toMillis(y.createdAt) - toMillis(x.createdAt));
 
     if (filters.startDate) {
       const start = new Date(filters.startDate).getTime();
