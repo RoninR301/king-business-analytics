@@ -11,10 +11,9 @@ function getBasePath() {
   // site root (handles both GitHub Pages project sites and local servers).
   const idx = path.indexOf('/pages/');
   if (idx !== -1) return path.substring(0, idx);
-  // Otherwise we are at a root-level document — an actual file
-  // (index.html, firebase-test.html) OR a directory URL such as
-  // `/repo/` (GitHub Pages) or `/` (local). In every case the base is the
-  // directory that contains the current document.
+  // Otherwise we are at a root-level document — an actual file (index.html)
+  // OR a directory URL such as `/repo/` (GitHub Pages) or `/` (local). In
+  // every case the base is the directory that contains the current document.
   return path.substring(0, path.lastIndexOf('/'));
 }
 
