@@ -61,7 +61,7 @@ export const shopsController = {
 
     // Edit mode: prefill the existing manager and wire the password-reset flow.
     if (isEdit) {
-      const managers = await managerService.getByShop(shopId);
+      const managers = await managerService.getByShop(shopId, authStore.getUser()?.uid);
       const manager = managers[0] || null;
       if (manager) {
         const nameInput = overlay.querySelector('[name="managerName"]');

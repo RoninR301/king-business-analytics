@@ -13,10 +13,21 @@ export const dashboardController = {
   async initAdmin(container) {
     const user = authStore.getUser();
     const range = getDateRange('30days');
-    const stats = await analyticsService.getDashboardStats(user.uid, {
-      start: toISODate(range.start),
-      end: toISODate(range.end)
-    });
+
+    // A failed stats read must still render the dashboard (never a blank screen).
+    let stats = {
+      totalShops: 0, totalSales: 0, totalCustomers: 0, totalInvoices: 0,
+      totalRevenue: 0, totalProfit: 0, shopStats: [], bestShop: null,
+      topProducts: [], dailyData: [], weeklyData: [], monthlyData: []
+    };
+    try {
+      stats = await analyticsService.getDashboardStats(user.uid, {
+        start: toISODate(range.start),
+        end: toISODate(range.end)
+      });
+    } catch (err) {
+      console.error('[KBA][dashboard] stats load failed:', err?.message || err);
+    }
 
     // Live totals straight from Firestore (revenue & profit reflect actual sales).
     try {
