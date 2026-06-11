@@ -1,9 +1,18 @@
 import {
-  collection, doc, setDoc, getDocs, query, where, orderBy, limit, serverTimestamp
+  collection, doc, setDoc, getDocs, query, where, limit, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { db } from '../../firebase/init.js';
 import { COLLECTIONS } from '../../database/collections.js';
 import { eventBus, EVENTS } from '../../core/event-bus.js';
+
+// Normalize a Firestore Timestamp | ISO string | null into milliseconds so
+// invoices can be sorted newest-first on the client.
+function toMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  const t = new Date(value).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
 
 class BillingService {
   /**
@@ -27,9 +36,13 @@ class BillingService {
     return `INV-${datePart}-${suffix}`;
   }
 
-  async invoiceNumberExists(invoiceNumber) {
+  async invoiceNumberExists(invoiceNumber, shopId) {
+    // Scope the uniqueness probe by shopId: the invoice read rule authorizes a
+    // manager off `resource.data.shopId`, so a list query must constrain shopId
+    // or Firestore rejects it. Invoice numbers are unique per shop.
     const q = query(
       collection(db, COLLECTIONS.INVOICES),
+      where('shopId', '==', shopId),
       where('invoiceNumber', '==', invoiceNumber),
       limit(1)
     );
@@ -37,9 +50,9 @@ class BillingService {
     return !snap.empty;
   }
 
-  async generateInvoiceNumber() {
+  async generateInvoiceNumber(shopId) {
     let invoiceNumber = this.buildInvoiceNumber();
-    for (let attempt = 0; attempt < 5 && (await this.invoiceNumberExists(invoiceNumber)); attempt++) {
+    for (let attempt = 0; attempt < 5 && (await this.invoiceNumberExists(invoiceNumber, shopId)); attempt++) {
       invoiceNumber = this.buildInvoiceNumber();
     }
     return invoiceNumber;
@@ -47,7 +60,7 @@ class BillingService {
 
   async create(shopId, sale, shop, manager = null, settings = {}) {
     const invoiceRef = doc(collection(db, COLLECTIONS.INVOICES));
-    const invoiceNumber = await this.generateInvoiceNumber();
+    const invoiceNumber = await this.generateInvoiceNumber(shopId);
 
     const invoice = {
       id: invoiceRef.id,
@@ -85,13 +98,16 @@ class BillingService {
   }
 
   async getByShop(shopId) {
+    // Sort newest-first client-side instead of orderBy('createdAt') so the query
+    // needs no composite (shopId + createdAt) index to be provisioned.
     const q = query(
       collection(db, COLLECTIONS.INVOICES),
-      where('shopId', '==', shopId),
-      orderBy('createdAt', 'desc')
+      where('shopId', '==', shopId)
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((x, y) => toMillis(y.createdAt) - toMillis(x.createdAt));
   }
 
   async getByOwner(ownerId) {
