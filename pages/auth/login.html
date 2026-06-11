@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — KING BUSINESS ANALYTICS</title>
+  <link rel="stylesheet" href="../../css/main.css" />
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card" id="auth-container"></div>
+  </div>
+  <script type="module">
+    import { authController } from '../../modules/auth/controller.js';
+    import { settingsService } from '../../modules/settings/services.js';
+    settingsService.loadTheme();
+    const isManager = new URLSearchParams(location.search).get('role') === 'manager';
+    authController.initLogin(document.getElementById('auth-container'), isManager);
+  </script>
+</body>
+</html>

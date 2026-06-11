@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analytics — KING BUSINESS ANALYTICS</title>
+  <link rel="stylesheet" href="../../css/main.css" />
+</head>
+<body>
+  <div class="app-shell" id="app-shell"></div>
+  <script type="module">
+    import { initApp } from '../../js/app.js';
+    import { analyticsController } from '../../modules/analytics/controller.js';
+    initApp({ roles: ['owner'], title: 'Analytics', subtitle: 'Performance insights', controller: analyticsController });
+  </script>
+</body>
+</html>
